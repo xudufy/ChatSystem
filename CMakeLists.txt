@@ -8,6 +8,8 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR} CACHE STRING "library_out
 
 add_compile_options(-std=c++17)
 
+add_definitions(-DSERVER_IP="127.0.0.1" -DSERVER_PORT=61856)
+
 if (NDEBUG) 
     add_compile_options(-O2 -DNDEBUG)
 else ()
@@ -17,6 +19,12 @@ endif()
 add_subdirectory(client)
 add_subdirectory(server)
 
+add_executable(
+    testu
+
+    testu.cpp
+    utilities.cpp
+)
 
 
 

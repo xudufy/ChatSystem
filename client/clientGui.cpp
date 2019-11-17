@@ -1,29 +1,16 @@
 #include "../common.h"
 #include "clientGui.h"
-#include <mutex>
-#include <thread>
-#include <functional>
-#include <map>
-#include <string>
-#include <atomic>
-#include <assert.h>
-using namespace std;
+#include "clientChatData.h"
 
-class ClientChatData{
-public:
-  std::mutex objmutex;
-  std::unordered_map<string, string> userMessages;
-  std::vector<string> logs;
-  std::string myNickName;
-};
+using namespace std;
 
 class ClientGuiData {
 public:
-    std::mutex objMutex;
     std::atomic<int> numUserIndex;
     std::atomic<int> currentChosenUser;
     std::map<int, string> idToNick;
-    std::map<string, GtkWidget*> NicktoRow;   
+    std::map<string, GtkWidget*> NicktoRow;
+
 };
 
 ClientGuiData clientData;
@@ -46,11 +33,18 @@ int gui_entry(int argc, char *argv[]) {
     GObject *main_window = gtk_builder_get_object(builder, "main_window");
     g_signal_connect(main_window, "destroy", G_CALLBACK(gtk_main_quit), NULL);
 
-    // gtk_widget_show_all(GTK_WIDGET(login_window));
+    gtk_widget_show_all(GTK_WIDGET(login_window));
     gtk_widget_show_all(GTK_WIDGET(main_window));
     gtk_main();
     return 0;
 }
+
+enum class NetStatus:int{
+    LOGGED_OUT,
+    LOGIN_PENDING,
+    LOGGED_IN,
+    LOGOUT_PENDING
+};
 
 int main(int argc, char *argv[]) {
     return gui_entry(argc, argv);
