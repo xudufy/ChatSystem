@@ -5,8 +5,9 @@
 
 class ClientChatData{
 public:
+  //lock sequence is msg, logs, myname;
   std::mutex msgmutex, logsmutex, mynamemutex;
-  std::unordered_map<std::string, std::string> userMessages;
+  std::unordered_map<std::string, std::deque<std::string>> userMessages;
   std::deque<std::string> logs;
   std::string myNickName;
 };

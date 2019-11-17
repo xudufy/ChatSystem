@@ -90,3 +90,24 @@ std::vector<std::string> deCompositeMsg(const std::string &in)
 
     return out;
 }
+
+//seperate stream messages to commands, remain the last incomplete one.
+std::vector<std::string> separateMsg(std::string & in) {
+    std::vector<std::string> out;
+    int lastsep = 0;
+    bool escape = false;
+    for (int i=0; i<in.size(); i++) {
+        if (!escape) {
+            if (in[i]=='\\') {
+                escape = true;
+            } else if (in[i] == ';') {
+                out.push_back(in.substr(lastsep, i+1-lastsep));
+                lastsep = i+1;
+            }
+        } else {
+            escape = false;
+        }
+    }
+    in = in.substr(lastsep);
+    return out;
+}

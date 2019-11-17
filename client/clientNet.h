@@ -14,7 +14,7 @@ enum class NetStatus:int{
 
 class ClientNet {
 public:
-    explicit ClientNet();
+    ClientNet();
 
     //return immediately, run in main thread.
     int Login(const std::string & myNickName);
@@ -29,19 +29,21 @@ private:
 
     //called in listener thread.
     void connectionError();
-    int loginOK();
-    int loginNickNameError();
+    void loginOK(const std::vector<std::string> & userlist_contain_header);
+    void loginNickNameError();
     void oneUserAdded(const std::string & name);
     void oneUserDeleted(const std::string & name);
-    void messageReceived(const std::string & name, const std::string & message);
+    void messageReceived(const std::string & name, const std::string & line);
     void messageError(const std::string & name);
 
     //called everywhere
-    int checkUserName(const std::string & name);
     int writeLog(const std::string & line);
-    
+
+    //do nothing and return -1 if user not found.
+    int writeUserMessage(const std::string &name, const std::string & line);
+
 public:
-    //run in listener thread.
+    //run in all thread.
     std::function<void(void)> 
         connectionErrorCB = NULL,
         loginOKCB = NULL,
@@ -56,8 +58,8 @@ private:
     ClientChatData chatData;
     std::thread *mainLoopThread = NULL;
     std::atomic<NetStatus> status;
-    MyTimer timeoutTimer;
-    int socketFd;
+    MyTimer pendingTimer;
+    int socketFd = -1;
 
 };
 

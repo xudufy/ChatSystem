@@ -6,8 +6,8 @@ using namespace std;
 
 class ClientGuiData {
 public:
-    std::atomic<int> numUserIndex;
-    std::atomic<int> currentChosenUser;
+    int numUserIndex;
+    int currentChosenUser;
     std::map<int, string> idToNick;
     std::map<string, GtkWidget*> NicktoRow;
 
@@ -38,14 +38,6 @@ int gui_entry(int argc, char *argv[]) {
     gtk_main();
     return 0;
 }
-
-enum class NetStatus:int{
-    LOGGED_OUT,
-    LOGIN_PENDING,
-    LOGGED_IN,
-    LOGOUT_PENDING
-};
-
 int main(int argc, char *argv[]) {
     return gui_entry(argc, argv);
 }

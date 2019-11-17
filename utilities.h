@@ -23,5 +23,6 @@ std::string compositeMsg(const std::vector<std::string> & in);
 
 std::vector<std::string> deCompositeMsg(const std::string &in);
 
+std::vector<std::string> separateMsg(std::string & in);
 
 #endif //! CHATSYSTEM_UTILITIES_H_
