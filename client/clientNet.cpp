@@ -162,30 +162,45 @@ void ClientNet::listener_main_loop()
             break;
         } 
 
+        bool breakflag = false;
         std::vector<std::string> cmds = separateMsg(cmdbuffer);
         for (auto cmd: cmds) {
             NPNX_LOG("received",cmd);
             std::vector<std::string> cols = deCompositeMsg(cmd);
             NPNX_ASSERT(cols.size()>0 && "cols is empty");
-            if (cols[0] == CMDHEAD_LOGIN_OK) {
-                NPNX_ASSERT(cols.size()>2 && "LOGIN_OK size not right");
-                loginOK(cols);
-            } else if (cols[0] == CMDHEAD_LOGIN_FAILED_NICKNAME) {
-                loginNickNameError();
-            } else if (cols[0] == CMDHEAD_USER_ADD){
-                NPNX_ASSERT(cols.size()==2 && "USER_ADD size not right");
-                oneUserAdded(cols[1]);
-            } else if (cols[0] == CMDHEAD_USER_DELETE) {
-                NPNX_ASSERT(cols.size()==2 && "USER_DELETE size not right");
-                oneUserDeleted(cols[1]);
-            } else if (cols[0] == CMDHEAD_SEND_FAILED) {
-                NPNX_ASSERT(cols.size()==2 && "SEND_FAILED size not right");
-                messageError(cols[1]);
-            } else if (cols[0] == CMDHEAD_RECV) {
-                NPNX_ASSERT(cols.size()==3 && "RECV size not right");
-                messageReceived(cols[1], cols[2]);
+            if (status == NetStatus::LOGIN_PENDING) {
+                if (cols[0] == CMDHEAD_LOGIN_OK) {
+                    NPNX_ASSERT(cols.size()>2 && "LOGIN_OK size not right");
+                    loginOK(cols);
+                } else if (cols[0] == CMDHEAD_LOGIN_FAILED_NICKNAME) {
+                    loginNickNameError();
+                    breakflag = true;
+                    break;
+                } else if (!pendingTimer.TimerNotEnd()) {
+                    writeLog("Login Timeout.");
+                    if (loginErrorCB) loginErrorCB();
+                    breakflag = true;
+                    break;
+                }
+            } else if (status == NetStatus::LOGGED_IN){
+                if (cols[0] == CMDHEAD_USER_ADD){
+                    NPNX_ASSERT(cols.size()==2 && "USER_ADD size not right");
+                    oneUserAdded(cols[1]);
+                } else if (cols[0] == CMDHEAD_USER_DELETE) {
+                    NPNX_ASSERT(cols.size()==2 && "USER_DELETE size not right");
+                    oneUserDeleted(cols[1]);
+                } else if (cols[0] == CMDHEAD_SEND_FAILED) {
+                    NPNX_ASSERT(cols.size()==2 && "SEND_FAILED size not right");
+                    messageError(cols[1]);
+                } else if (cols[0] == CMDHEAD_RECV) {
+                    NPNX_ASSERT(cols.size()==3 && "RECV size not right");
+                    messageReceived(cols[1], cols[2]);
+                }
             }
         }
+        if (breakflag) break;
+
+        std::this_thread::sleep_for(std::chrono::duration<int, std::ratio<1,1000>>(100));
     }
 
     status = NetStatus::LOGOUT_PENDING;
@@ -215,7 +230,7 @@ void ClientNet::loginOK(const std::vector<std::string> & fake_userlist)
             }
         }
     }
-    
+    status=NetStatus::LOGGED_IN;
     if (loginOKCB) loginOKCB();
 }
 
