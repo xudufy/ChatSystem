@@ -195,7 +195,8 @@ int ServerNet::acceptConnection()
         case EAGAIN:
           numAcceptError=0;
           return 0;
-
+          break;
+          
         default:
           numAcceptError++;
           if (numAcceptError>200) {
