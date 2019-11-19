@@ -3,30 +3,35 @@
 
 #include "../common.h"
 
-#include <sys/epoll.h>
-
+//one thread server.
 class ServerNet {
 public:
-  ServerNet();
-  ~ServerNet() = default;
-
-  //join the thread and clear all fd at the endpoint.
   int ListenerLoop();
 
 private:
-  int handlerLoop();
+  //return -1 if we need to shutdown the server.
+  //return 0 if connected or connection error(no need to handle).
+  int acceptConnection();
 
-private:
+  void closeClientGently(int fd);
+  void closeClientViolently(int fd);
+  void OneLogOut(int fd);
+  void OneLogIn(int fd);
+  void OneSendMessage(int in_fd, const std::string & to_name, const std::string & msg);
+
+
+  std::mutex mainfdmutex, dictfdmutex;
   int epfd=-1, listenfd=-1, stdinfd=STDIN_FILENO;
+  std::unordered_map<int, std::string> openedfd; 
+  
   int maxListenQueue = 10;
-  std::thread *handler = NULL;
-  std::atomic<bool> shouldStop;//this is for handler notify listener loop.
+  int numAcceptError = 0;
 
-  //access only in handler thread, so no need for mutex. 
-  //But semantically, any modify to this three data structures must be atomic as a whole, because of the redundence.
+  //redundant login sessions.
   std::unordered_map<std::string, int> name2Fd;
   std::unordered_map<int, std::string> fd2name;
-  std::unordered_map<std::string, std::string> name2remainCmd;
-}
+  
+  
+};
 
 #endif //! SERVER_SERVERNET_H_

@@ -91,6 +91,8 @@ int ClientNet::Logout()
         return -1;
     }
 
+    shutdown(socketFd, SHUT_WR);
+
     status = NetStatus::LOGOUT_PENDING;
     writeLog("Successfully logged out");
 
@@ -108,7 +110,10 @@ int ClientNet::Clear()
     }
 
     if (socketFd!=-1) {
-        shutdown(socketFd, SHUT_WR);
+        string cmdline = compositeMsg({CMDHEAD_LOGOUT});
+        if (send(socketFd, cmdline.c_str(), cmdline.size()*sizeof(char),0)>0) {
+            shutdown(socketFd, SHUT_WR);
+        }
         char buf[4096];
         while (recv(socketFd, buf, 4096, 0)>0) {}
         close(socketFd);
