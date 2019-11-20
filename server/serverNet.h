@@ -15,12 +15,11 @@ private:
 
   void closeClientGently(int fd);
   void closeClientViolently(int fd);
-  void OneLogOut(int fd);
-  void OneLogIn(int fd);
-  void OneSendMessage(int in_fd, const std::string & to_name, const std::string & msg);
+  void oneLogOut(int fd);
+  void oneLogIn(int fd, const std::string & nickname);
+  void oneSendMessage(int in_fd, const std::string & to_name, const std::string & msg);
+  void boardcast(const std::string & cmd, int exceptfd = -1);
 
-
-  std::mutex mainfdmutex, dictfdmutex;
   int epfd=-1, listenfd=-1, stdinfd=STDIN_FILENO;
   std::unordered_map<int, std::string> openedfd; 
   

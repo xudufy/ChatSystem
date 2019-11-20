@@ -148,10 +148,54 @@ int ServerNet::ListenerLoop()
           continue;
         }
 
-        //TODO:process command in openedfd.
+        //process command in openedfd.
+        vector<string> cmds = separateMsg(openedfd[thisfd]);
+        string errorcmd  = "";
+        for (auto cmd:cmds) {
+          vector<string> cols = deCompositeMsg(cmd);
 
-      }
-    }
+          if (cols[0] == CMDHEAD_LOGIN) {
+          
+            if (cols.size()<2) {
+              errorcmd = cmd;
+              closeClientViolently(thisfd);
+              break;
+            }
+            OneLogIn(thisfd, cols[1]);
+          
+          } else if (cols[0] == CMDHEAD_LOGOUT) {
+          
+            OneLogOut(thisfd);
+          
+          } else if (cols[0] == CMDHEAD_SEND) {
+          
+            if (cols.size()<3) {
+              errorcmd = cmd;
+              closeClientViolently(thisfd);
+              break;
+            }
+            OneSendMessage(thisfd, cols[1], cols[2]);
+          
+          } else {
+              errorcmd = cmd;
+              closeClientViolently(thisfd);
+              break;
+          }
+
+        } // end : for each cmds in openfd[thisfd].
+        
+        if (errorcmd!="") {
+          cerr<<"custom command error:"<<errorcmd<<endl<<"cols:";
+          vector<string> checkColumn = deCompositeMsg(errorcmd);
+          for (auto col:checkColumn) {
+            cerr<<col<<",";
+          }
+          cerr<<endl;
+        }
+
+      } // end : if thisfd is a client fd.
+    
+    } //end: listener loop.
 
     if (errorHappened) {
       break;
@@ -159,7 +203,21 @@ int ServerNet::ListenerLoop()
 
   } while (0);
 
-  //TODO:close epoll fd, listen fd, openedfd.
+  //close epoll fd, listen fd, openedfd.
+  for (auto it: openedfd) {
+    epoll_ctl(epfd, EPOLL_CTL_DEL, it.first, NULL);
+    close(it.first);
+  }
+  close(epfd);
+  close(listenfd);
+  
+  epfd = -1;
+  listenfd = -1;
+  openedfd.clear();
+  name2Fd.clear();
+  fd2name.clear();
+
+  return 0;
 }
 
 int ServerNet::acceptConnection()
@@ -220,9 +278,123 @@ int ServerNet::acceptConnection()
 
 void ServerNet::closeClientGently(int fd)
 {
-  //remove it from epoll first, otherwise epoll will generate EPOLLHUP
-  //when we do shutdown. <-- no need because we dont wait before this 
-  //function end.
+  oneLogOut(fd);
+  epoll_ctl(epfd, EPOLL_CTL_DEL, fd, NULL);  
+  shutdown(fd, SHUT_WR);
+  char buf[4096];
+  int timelimit = 10;
+  while (timelimit>0 && recv(fd, buf, 4095, MSG_DONTWAIT)>0){
+    timelimit--;
+  } //use time limit when client send flood after fin.
+  openedfd.erase(fd);
+  close(fd);
+  cerr<<fd<<" closed gently."<<endl;
+}
 
+void ServerNet::closeClientViolently(int fd)
+{
+  oneLogOut(fd);
+  epoll_ctl(epfd, EPOLL_CTL_DEL, fd, NULL);  
+  openedfd.erase(fd);
+  close(fd);
+  cerr<<fd<<" closed violently."<<endl;
+}
+
+void ServerNet::oneLogOut(int fd)
+{
+  if (fd2name.count(fd)>0) {
+    string name = fd2name[fd];
+    fd2name.erase(fd);
+    name2Fd.erase(name);
+    cerr<<fd<<" "<<name<<" logged out."<<endl;
+
+
+    string cmd = compositeMsg({CMDHEAD_USER_DELETE, name});
+    boardcast(cmd, fd);
+  }
+}
+
+void ServerNet::oneLogIn(int fd, const std::string & nickname)
+{
+  if (fd2name.count(fd)==1) {
+    return;
+    // already logged in. do nothing.
+  }
+
+  if (name2Fd.count(nickname)==1) {
+
+    string cmd = compositeMsg({CMDHEAD_LOGIN_FAILED_NICKNAME});
+    if (send(fd, cmd.c_str(), cmd.size(), 0)<0) {
+      closeClientViolently(fd);
+    }
+    cerr<<"log:login_failed_nickname: "<<nickname<<endl;
+    return;
+
+  } 
+
+  std::vector<string> cols({CMDHEAD_LOGIN_OK, nickname});
+  for (auto username:name2Fd) {
+    cols.push_back(username.first);
+  }
+
+  string cmd = compositeMsg(cols);
+  if (send(fd, cmd.c_str(), cmd.size(), 0)<0) {
+    closeClientViolently(fd);
+    return;
+  }
+
+  name2Fd[nickname] = fd;
+  fd2name[fd] = nickname;
+
+  cerr<<nickname<<" logged in."<<endl;
+
+  string cmd = compositeMsg({CMDHEAD_USER_ADD, nickname});
+  boardcast(cmd, fd);
+
+}
+
+void ServerNet::oneSendMessage(int in_fd, const std::string & to_name, const std::string & msg)
+{
+  if (fd2name.count(in_fd) == 0) {
+    closeClientViolently(in_fd);
+    cerr<<in_fd<<" send message while not logged in."<< endl;
+    return;
+  }
+
+  if (name2Fd.count(to_name) > 0) {
+  
+    string cmd = compositeMsg({CMDHEAD_RECV, fd2name[in_fd], msg});
+    if (send(name2Fd[to_name], cmd.c_str(), cmd.size(), 0)>0) {
+      return;
+    } else {
+      closeClientViolently(name2Fd[to_name]);  
+    }
+    
+  }
+
+  string cmd = compositeMsg({CMDHEAD_SEND_FAILED, to_name});
+  if (send(in_fd, cmd.c_str(), cmd.size(), 0)<0) {
+    closeClientViolently(in_fd);
+  }
+  
+}
+
+void ServerNet::boardcast(const std::string & cmd, int exceptfd = -1){
+
+    std::vector<int> failedfds;
+    failedfds.clear();
+
+    for (auto userfd: fd2name) {
+      if (userfd.first==exceptfd) continue;
+      if (send(userfd.first, cmd.c_str(), cmd.size(), 0)<0) {
+        failedfds.push_back(userfd.first);
+      }
+    }
+
+    for (auto failedfd: failedfds) {
+      closeClientViolently(failedfd); 
+      //even the failed fd has sent a fin between last epoll_wait to this,
+      //it should be able to receive data.
+    }
 
 }

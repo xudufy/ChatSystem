@@ -4,7 +4,8 @@ void MyTimer::setTimer(int ms)
 {
     timespec cur;
     clock_gettime(CLOCK_REALTIME, &cur);
-    cur.tv_nsec+=ms*1000000;
+    cur.tv_nsec+=(ms%1000)*1000000;
+    cur.tv_sec+=ms/1000;
     if (cur.tv_nsec>=1000000000) {
         cur.tv_sec+=(int)cur.tv_nsec/1000000000;
         cur.tv_nsec%=1000000000;

@@ -17,7 +17,7 @@ public:
     ClientNet();
 
     //return immediately, run in main thread.
-    int Login(const std::string & myNickName);
+    int Login(const std::string & myNickName,int waitTime = 500);
     int SendMessageTo(const std::string & toName, const std::string & message);
     int Logout();
     int Clear();

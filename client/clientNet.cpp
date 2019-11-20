@@ -7,7 +7,7 @@ ClientNet::ClientNet()
     status=NetStatus::LOGGED_OUT; 
 }
 
-int ClientNet::Login(const std::string & myNickName)
+int ClientNet::Login(const std::string & myNickName, int waitTime = 500)
 {
     if (status.load() == NetStatus::LOGOUT_PENDING) {
         Clear();
@@ -42,7 +42,7 @@ int ClientNet::Login(const std::string & myNickName)
             break;
         }
 
-        pendingTimer.setTimer(500);
+        pendingTimer.setTimer(waitTime);
         mainLoopThread = new std::thread([this](){this->listener_main_loop();});
         return 0;
 
