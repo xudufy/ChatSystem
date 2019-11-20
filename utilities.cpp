@@ -30,7 +30,7 @@ bool MyTimer::TimerNotEnd()
 std::string excapeMsg(const std::string &in)
 {
     std::string out="";
-    for(int i = 0; i<in.size(); i++) {
+    for(size_t i = 0; i<in.size(); i++) {
         switch (in[i]) {
             case ':': 
             case ';': 
@@ -48,7 +48,7 @@ std::string excapeMsg(const std::string &in)
 std::string unExcapeMsg(const std::string &in)
 {
     std::string out="";
-    for(int i=0; i<in.size(); i++){
+    for(size_t i=0; i<in.size(); i++){
         if (in[i]!='\\') {
             out+=in[i];
         } else if (i<in.size()-1 && in[i+1]=='\\') {
@@ -62,7 +62,7 @@ std::string unExcapeMsg(const std::string &in)
 std::string compositeMsg(const std::vector<std::string> & in)
 {
     std::string out;
-    for (int i = 0; i<in.size()-1; i++) {
+    for (size_t i = 0; i<in.size()-1; i++) {
         out+=excapeMsg(in[i]);
         out+=":";
     }
@@ -76,7 +76,7 @@ std::vector<std::string> deCompositeMsg(const std::string &in)
     std::vector<std::string> out;
     int lastsep = 0;
     bool escape = false;
-    for (int i=0; i<in.size(); i++) {
+    for (size_t i=0; i<in.size(); i++) {
         if (!escape) {
             if (in[i]=='\\') {
                 escape=true;
@@ -97,7 +97,7 @@ std::vector<std::string> separateMsg(std::string & in) {
     std::vector<std::string> out;
     int lastsep = 0;
     bool escape = false;
-    for (int i=0; i<in.size(); i++) {
+    for (size_t i=0; i<in.size(); i++) {
         if (!escape) {
             if (in[i]=='\\') {
                 escape = true;

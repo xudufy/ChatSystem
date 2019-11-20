@@ -63,6 +63,7 @@ int ServerNet::ListenerLoop()
       break;
     }
 
+    cerr<<"listener loop start."<<endl;
     // epoll_event ev_tcp;
     // ev_tcp.events = EPOLLIN | EPOLLERR | EPOLLHUP | EPOLLRDHUP;
 
@@ -80,7 +81,7 @@ int ServerNet::ListenerLoop()
           errorHappened = true;
           break;
         }
-      } else if (suc=0) {
+      } else if (suc==0) {
         continue;
       }
 
@@ -108,7 +109,7 @@ int ServerNet::ListenerLoop()
 
         char buf[4096];
         int len;
-        if ((len=recv(stdinfd, buf, 4095, 0))<0) {
+        if ((len=read(stdinfd, buf, 4095))<0) {
           NPNX_LOG_ERRNO("stdin recv");
           errorHappened = true;
           break;
@@ -161,11 +162,11 @@ int ServerNet::ListenerLoop()
               closeClientViolently(thisfd);
               break;
             }
-            OneLogIn(thisfd, cols[1]);
+            oneLogIn(thisfd, cols[1]);
           
           } else if (cols[0] == CMDHEAD_LOGOUT) {
           
-            OneLogOut(thisfd);
+            oneLogOut(thisfd);
           
           } else if (cols[0] == CMDHEAD_SEND) {
           
@@ -174,7 +175,7 @@ int ServerNet::ListenerLoop()
               closeClientViolently(thisfd);
               break;
             }
-            OneSendMessage(thisfd, cols[1], cols[2]);
+            oneSendMessage(thisfd, cols[1], cols[2]);
           
           } else {
               errorcmd = cmd;
@@ -348,7 +349,7 @@ void ServerNet::oneLogIn(int fd, const std::string & nickname)
 
   cerr<<nickname<<" logged in."<<endl;
 
-  string cmd = compositeMsg({CMDHEAD_USER_ADD, nickname});
+  cmd = compositeMsg({CMDHEAD_USER_ADD, nickname});
   boardcast(cmd, fd);
 
 }
@@ -379,7 +380,7 @@ void ServerNet::oneSendMessage(int in_fd, const std::string & to_name, const std
   
 }
 
-void ServerNet::boardcast(const std::string & cmd, int exceptfd = -1){
+void ServerNet::boardcast(const std::string & cmd, int exceptfd){
 
     std::vector<int> failedfds;
     failedfds.clear();
