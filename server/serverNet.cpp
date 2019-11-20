@@ -1,6 +1,7 @@
 #include "serverNet.h"
 #include <string.h>
 #include <sys/epoll.h>
+#include <signal.h>
 #include "../utilities.h"
 
 using namespace std;
@@ -223,9 +224,9 @@ int ServerNet::ListenerLoop()
 
 int ServerNet::acceptConnection()
 {
-    sockaddr clinetAdd;
-    socklen_t len;
-    int newfd = accept(listenfd, &clinetAdd, &len);
+    sockaddr_in clinetAdd;
+    socklen_t len = sizeof(clinetAdd);
+    int newfd = accept(listenfd, (sockaddr *)&clinetAdd, &len);
     if (newfd<0) {
       newfd = -1;
       //here we don't consider this as a fatal error because the 
@@ -289,7 +290,7 @@ void ServerNet::closeClientGently(int fd)
   } //use time limit when client send flood after fin.
   openedfd.erase(fd);
   close(fd);
-  cerr<<fd<<" closed gently."<<endl;
+  cerr<<"fd "<<fd<<" closed gently."<<endl;
 }
 
 void ServerNet::closeClientViolently(int fd)
@@ -298,7 +299,7 @@ void ServerNet::closeClientViolently(int fd)
   epoll_ctl(epfd, EPOLL_CTL_DEL, fd, NULL);  
   openedfd.erase(fd);
   close(fd);
-  cerr<<fd<<" closed violently."<<endl;
+  cerr<<"fd "<<fd<<" closed violently."<<endl;
 }
 
 void ServerNet::oneLogOut(int fd)
@@ -307,7 +308,7 @@ void ServerNet::oneLogOut(int fd)
     string name = fd2name[fd];
     fd2name.erase(fd);
     name2Fd.erase(name);
-    cerr<<fd<<" "<<name<<" logged out."<<endl;
+    cerr<<"fd "<<fd<<" "<<name<<" logged out."<<endl;
 
 
     string cmd = compositeMsg({CMDHEAD_USER_DELETE, name});
@@ -358,7 +359,7 @@ void ServerNet::oneSendMessage(int in_fd, const std::string & to_name, const std
 {
   if (fd2name.count(in_fd) == 0) {
     closeClientViolently(in_fd);
-    cerr<<in_fd<<" send message while not logged in."<< endl;
+    cerr<<"fd "<<in_fd<<" send message while not logged in."<< endl;
     return;
   }
 

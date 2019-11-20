@@ -11,7 +11,7 @@ void MyTimer::setTimer(int ms)
         cur.tv_nsec%=1000000000;
     }
     {
-        std::lock_guard lock(objmutex);
+        std::lock_guard<std::mutex> lock(objmutex);
         endTp = cur;
     }
 }
@@ -21,7 +21,7 @@ bool MyTimer::TimerNotEnd()
     timespec cur;
     clock_gettime(CLOCK_REALTIME, &cur);
     {
-        std::lock_guard lock(objmutex);
+        std::lock_guard<std::mutex> lock(objmutex);
         return (cur.tv_sec<endTp.tv_sec || 
         (cur.tv_sec==endTp.tv_sec && cur.tv_nsec<endTp.tv_nsec)); 
     }

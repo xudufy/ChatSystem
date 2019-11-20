@@ -15,6 +15,7 @@ enum class NetStatus:int{
 class ClientNet {
 public:
     ClientNet();
+    ~ClientNet();
 
     //return immediately, run in main thread.
     int Login(const std::string & myNickName,int waitTime = 500);
@@ -28,7 +29,6 @@ private:
     void listener_main_loop();
 
     //called in listener thread.
-    void connectionError();
     void loginOK(const std::vector<std::string> & userlist_contain_header);
     void loginNickNameError();
     void oneUserAdded(const std::string & name);

@@ -11,6 +11,7 @@
 #include <thread>
 #include <functional>
 #include <map>
+#include <unordered_map>
 #include <string>
 #include <atomic>
 #include <vector>

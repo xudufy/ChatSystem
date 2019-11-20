@@ -13,9 +13,28 @@ add_compile_options(${GTK_CFLAGS})
 link_directories(${GTK_LIBRARY_DIRS})
 link_libraries(${GTK_LIBRARIES})
 
+add_library(
+    clientNet
+    
+    OBJECT
+    
+    clientNet.cpp
+    ../utilities.cpp
+)
+
 add_executable(
-chatClient
-clientGui.cpp
+    chatClient
+    
+    clientGui.cpp
+)
+
+
+
+add_executable(
+    testNet
+
+    test.cpp
+    $<TARGET_OBJECTS:clientNet>
 )
 
 add_custom_target(clientuixml ALL COMMAND cp ${CMAKE_CURRENT_SOURCE_DIR}/client.glade ${CMAKE_RUNTIME_OUTPUT_DIRECTORY} DEPENDS client.glade)

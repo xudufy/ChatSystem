@@ -1,4 +1,5 @@
 #include "clientNet.h"
+#include <signal.h>
 
 using namespace std;
 
@@ -7,7 +8,12 @@ ClientNet::ClientNet()
     status=NetStatus::LOGGED_OUT; 
 }
 
-int ClientNet::Login(const std::string & myNickName, int waitTime = 500)
+ClientNet::~ClientNet()
+{
+    Clear();
+}
+
+int ClientNet::Login(const std::string & myNickName, int waitTime)
 {
     if (status.load() == NetStatus::LOGOUT_PENDING) {
         Clear();
@@ -48,6 +54,7 @@ int ClientNet::Login(const std::string & myNickName, int waitTime = 500)
 
     } while (0);
     
+    Clear();
     if (loginErrorCB) loginErrorCB();    
     return 0;
 }
@@ -91,9 +98,7 @@ int ClientNet::Logout()
         return -1;
     }
 
-    shutdown(socketFd, SHUT_WR);
-
-    status = NetStatus::LOGOUT_PENDING;
+    Clear();
     writeLog("Successfully logged out");
 
     return 0;
@@ -111,9 +116,7 @@ int ClientNet::Clear()
 
     if (socketFd!=-1) {
         string cmdline = compositeMsg({CMDHEAD_LOGOUT});
-        if (send(socketFd, cmdline.c_str(), cmdline.size()*sizeof(char),0)>0) {
-            shutdown(socketFd, SHUT_WR);
-        }
+        shutdown(socketFd, SHUT_WR);
         char buf[4096];
         while (recv(socketFd, buf, 4096, 0)>0) {}
         close(socketFd);
@@ -121,9 +124,9 @@ int ClientNet::Clear()
     }
 
     {   //actually no need to lock because we joined the listener thread.
-        lock_guard lock(chatData.msgmutex);
-        lock_guard lock2(chatData.logsmutex);
-        lock_guard lock3(chatData.mynamemutex);
+        lock_guard<mutex> lock(chatData.msgmutex);
+        lock_guard<mutex> lock2(chatData.logsmutex);
+        lock_guard<mutex> lock3(chatData.mynamemutex);
         chatData.userMessages.clear();
         chatData.logs.clear();
         chatData.myNickName.clear();
@@ -148,14 +151,14 @@ void ClientNet::listener_main_loop()
         }
 
         char buf[4096];
-        int suc;
+        int suc = 0;
         do {
-            int suc = recv(socketFd, buf, 4095, MSG_DONTWAIT);
+            suc = recv(socketFd, buf, 4095, MSG_DONTWAIT);
             if (suc>0) {
                 buf[suc] = '\0';
                 cmdbuffer+=buf;
             }
-        } while (suc != 4095);
+        } while (suc == 4095);
         
         if (suc==0) {
             writeLog("Connection error: FIN received.");
@@ -175,7 +178,7 @@ void ClientNet::listener_main_loop()
             NPNX_ASSERT(cols.size()>0 && "cols is empty");
             if (status == NetStatus::LOGIN_PENDING) {
                 if (cols[0] == CMDHEAD_LOGIN_OK) {
-                    NPNX_ASSERT(cols.size()>2 && "LOGIN_OK size not right");
+                    NPNX_ASSERT(cols.size()>=2 && "LOGIN_OK size not right");
                     loginOK(cols);
                 } else if (cols[0] == CMDHEAD_LOGIN_FAILED_NICKNAME) {
                     loginNickNameError();
@@ -210,26 +213,22 @@ void ClientNet::listener_main_loop()
 
     status = NetStatus::LOGOUT_PENDING;
     if (errorHappened) {
-        connectionError();
+        writeLog("Unexpected Connection Error");
+        if (connectionErrorCB) connectionErrorCB();
     }
-}
-
-void ClientNet::connectionError()
-{
-    writeLog("Unexpected Connection Error");
-    if (connectionErrorCB) connectionErrorCB();
 }
 
 void ClientNet::loginOK(const std::vector<std::string> & fake_userlist)
 {
     {
-        lock_guard lock(chatData.msgmutex);
-        lock_guard lock2(chatData.logsmutex);
-        lock_guard lock3(chatData.mynamemutex);
+        lock_guard<mutex> lock(chatData.msgmutex);
+        lock_guard<mutex> lock2(chatData.logsmutex);
+        lock_guard<mutex> lock3(chatData.mynamemutex);
         chatData.myNickName = fake_userlist[1];
         chatData.logs.clear();
         chatData.userMessages.clear();
-        for (int i = 2; i<fake_userlist.size(); i++) {
+        //myself is a valid msg receiver, so start from 1.
+        for (size_t i = 1; i<fake_userlist.size(); i++) {
             if (chatData.userMessages.count(fake_userlist[i])==0){
                 chatData.userMessages[fake_userlist[i]] = {};
             }
@@ -249,7 +248,7 @@ void ClientNet::oneUserAdded(const std::string & name)
 {
     writeLog(name+" logged in.");
     {
-        lock_guard lock(chatData.msgmutex);
+        lock_guard<mutex> lock(chatData.msgmutex);
         if (chatData.userMessages.count(name)==0){
             chatData.userMessages[name] = {};
         } else {
@@ -264,7 +263,7 @@ void ClientNet::oneUserDeleted(const std::string & name)
 {
     writeLog(name+" logged out.");
     {
-        lock_guard lock(chatData.msgmutex);
+        lock_guard<mutex> lock(chatData.msgmutex);
         if (chatData.userMessages.count(name)==1){
             chatData.userMessages[name].clear();
             chatData.userMessages.erase(name);
@@ -288,29 +287,32 @@ void ClientNet::messageError(const std::string & name)
 
 int ClientNet::writeLog(const std::string & line)
 {
-    lock_guard lock(chatData.logsmutex);
+    lock_guard<mutex> lock(chatData.logsmutex);
     chatData.logs.push_back(line);
     int n = chatData.logs.size();
     if (n>20) {
-        for (int i = 0; i<n-10; i++) {
+        for (size_t i = 0; i<n-10; i++) {
             chatData.logs.pop_front();
         }
-    } 
+    }
+    return 0; 
 }
 
 int ClientNet::writeUserMessage(const std::string &name, const std::string & line)
 {
-    lock_guard lock(chatData.msgmutex);
+    lock_guard<mutex> lock(chatData.msgmutex);
     if (chatData.userMessages.count(name)==0) {
         return -1;
     } else {
         chatData.userMessages[name].push_back(line);
         int n = chatData.userMessages[name].size();
         if (n>100) {
-            for (int i = 0; i<n-40; i++) {
+            for (size_t i = 0; i<(size_t)n-40; i++) {
                 chatData.userMessages[name].pop_front();
             }
         }
     }
+
+    return 0;
 }
 
