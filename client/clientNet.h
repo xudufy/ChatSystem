@@ -36,6 +36,7 @@ private:
     void messageReceived(const std::string & name, const std::string & line);
     void messageError(const std::string & name);
 
+public:
     //called everywhere
     int writeLog(const std::string & line);
 

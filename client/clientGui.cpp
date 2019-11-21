@@ -282,19 +282,21 @@ gboolean user_deleted_cb(ClientGuiData *guidata)
 
     vector<string> usersnap;
     usersnap.clear();
-    {
-        lock_guard<mutex> lock(netdata->msgmutex);
-        for (auto iter:netdata->userMessages) {
-            usersnap.push_back(iter.first);
-        }    
-    }
+    for (auto iter:guidata->NicktoRow) {
+        usersnap.push_back(iter.first);
+    }    
 
     GtkListBox * user_list = GTK_LIST_BOX(gtk_builder_get_object(builder, "user_list"));
-    for (auto realuser: usersnap) {
-        if (guidata->NicktoRow.count(realuser)>0) {
-            GtkListBoxRow * thisrow = guidata->NicktoRow[realuser];
-            gtk_container_remove(GTK_CONTAINER(user_list), GTK_WIDGET(thisrow));
-            gtk_widget_destroy(GTK_WIDGET(thisrow));
+    {
+        lock_guard<mutex> lock(netdata->msgmutex);
+        for (auto myuser: usersnap) {
+            if (netdata->userMessages.count(myuser)==0) {
+                GtkListBoxRow * thisrow = guidata->NicktoRow[myuser];
+                guidata->RowtoNick.erase(thisrow);
+                guidata->NicktoRow.erase(myuser);
+                gtk_container_remove(GTK_CONTAINER(user_list), GTK_WIDGET(thisrow));
+                gtk_widget_destroy(GTK_WIDGET(thisrow));
+            }
         }
     }
         
@@ -307,14 +309,49 @@ gboolean user_deleted_cb(ClientGuiData *guidata)
 void login_clicked_cb( GtkWidget *widget, ClientGuiData * guidata)
 {
     LOCAL_UNPACK_GUIDATAP()
-
     
+    GtkButton * login_button = GTK_BUTTON(widget);
+    gtk_widget_set_sensitive(widget, false);
+    gtk_button_set_label(login_button, "Pending");
 
+    GtkEntry * nickname_input = 
+        GTK_ENTRY(gtk_builder_get_object(builder, "nickname_input"));
+    
+    string nick(gtk_entry_get_text(nickname_input));
+    if (nick.empty()) {
+        netcore->writeLog("nickname could not be empty");
+        back_to_login_cb(guidata);
+    } else {
+        netcore->Login(nick);
+    }
+    
 }
 
 void msg_send_cb(GtkWidget *widget, ClientGuiData * guidata)
 {
+    LOCAL_UNPACK_GUIDATAP()
 
+    GtkListBox * user_list = GTK_LIST_BOX(gtk_builder_get_object(builder, "user_list"));
+    GList * rowlist = gtk_list_box_get_selected_rows(user_list);
+
+    GtkListBoxRow * currentRow = NULL;
+    if (rowlist != NULL) {
+        currentRow = GTK_LIST_BOX_ROW(g_list_nth_data(rowlist, 0));
+        g_list_free(rowlist);
+    }
+    if (currentRow && guidata->RowtoNick.count(currentRow)>0) {
+        GtkEntry * message_entry = 
+            GTK_ENTRY(gtk_builder_get_object(builder, "message_entry"));
+
+        string line = gtk_entry_get_text(message_entry);
+        gtk_entry_set_text(message_entry, "");
+
+        netcore->SendMessageTo(guidata->RowtoNick[currentRow], line);
+    } else {
+        netcore->writeLog("send: no user selected.");
+        write_main_window_log(guidata);
+    }
+    
 }
 
 void switch_user_cb(GtkListBox *box, GtkListBoxRow *row, ClientGuiData *guidata)
@@ -324,6 +361,10 @@ void switch_user_cb(GtkListBox *box, GtkListBoxRow *row, ClientGuiData *guidata)
 
 void logout_cb(GtkWidget *widget, ClientGuiData * guidata)
 {
+    LOCAL_UNPACK_GUIDATAP()
+
+    netcore->Logout();
+    back_to_login_cb(guidata);
 
 }
 
