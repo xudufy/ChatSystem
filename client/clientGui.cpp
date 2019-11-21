@@ -22,12 +22,10 @@ public:
     ClientChatData * netdata=NULL;
     GtkBuilder * builder = NULL;
 
-    GtkListBoxRow* currentChosenRow = NULL;
-    std::map<GtkWidget*, string> RowtoNick;
+    std::map<GtkListBoxRow*, string> RowtoNick;
+    std::map<string, GtkListBoxRow*> NicktoRow;
 
 };
-
-ClientGuiData guiData;
 
 //functions run in mainloop to do common operations
 void write_main_window_log(ClientGuiData *guidata);
@@ -70,6 +68,7 @@ int gui_entry(int argc, char *argv[]) {
         exit(-1);
     }
 
+    ClientGuiData guiData;
     //setup netcore and callback.
     guiData.netcore = new ClientNet();
     guiData.netdata = guiData.netcore->getChatDataPointer();
@@ -107,8 +106,10 @@ int gui_entry(int argc, char *argv[]) {
     GObject *user_list = gtk_builder_get_object(builder, "user_list");
     g_signal_connect(user_list, "row-activated", G_CALLBACK(switch_user_cb), &guiData);
 
+
     gtk_widget_show_all(GTK_WIDGET(login_window));
     gtk_widget_show_all(GTK_WIDGET(main_window));
+    gtk_window_set_transient_for(GTK_WINDOW(login_window), GTK_WINDOW(main_window));
     gtk_main();
     g_object_unref(G_OBJECT(builder));
     gtk_widget_destroy(GTK_WIDGET(login_window));
@@ -129,43 +130,185 @@ int main(int argc, char *argv[]) {
 void write_main_window_log(ClientGuiData *guidata)
 {
     LOCAL_UNPACK_GUIDATAP()
-    
-
+    GtkLabel *notify_label;
+    notify_label = GTK_LABEL(gtk_builder_get_object(builder, "notify_label"));
+    string loglabel = "";
+    {
+        lock_guard<mutex> lock(netdata->logsmutex);
+        int n = netdata->logs.size();
+        for (int i = 4; i>=1; i--) {
+            if (n-i>=0) {
+                loglabel+=netdata->logs[n-i]+"\n";
+            }
+        }
+    }
+    gtk_label_set_label(notify_label, loglabel.c_str());
 }
 
 void refresh_msg_window(ClientGuiData *guidata)
 {
+    LOCAL_UNPACK_GUIDATAP()
+    GtkTextView * message_view;
+    message_view = GTK_TEXT_VIEW( gtk_builder_get_object(builder, "message_view"));
+    
+    GtkListBox * user_list = GTK_LIST_BOX(gtk_builder_get_object(builder, "user_list"));
+    GList * rowlist = gtk_list_box_get_selected_rows(user_list);
 
+    GtkListBoxRow * currentRow = NULL;
+    if (rowlist != NULL) {
+        currentRow = GTK_LIST_BOX_ROW(g_list_nth_data(rowlist, 0));
+        g_list_free(rowlist);
+    }
+    if (guidata->RowtoNick.count(currentRow) > 0) {
+        string & nick = guidata->RowtoNick[currentRow];
+        string msgs = "";
+        bool userfound = false;
+        {
+            lock_guard<mutex> lock(netdata->msgmutex);
+            if (netdata->userMessages.count(nick) > 0) {
+                for (auto iter: netdata->userMessages[nick]) {
+                    msgs+=iter+"\n";
+                }
+                userfound = true;
+            }
+        }
+        if (userfound) {
+            GtkTextBuffer* tb = gtk_text_view_get_buffer(message_view);
+            gtk_text_buffer_set_text(tb, msgs.c_str(), msgs.size());
+        }
+    }
 }
 
 //these are CB used in CB of netcore, which uses gdk_threads_add_idle () add them to run in main loop. 
 //these functions must return FALSE to run only once.
 gboolean login_ok_cb(ClientGuiData *guidata)
 {
+    LOCAL_UNPACK_GUIDATAP()
+    GObject *login_window = gtk_builder_get_object(builder, "login_window");
 
+    GtkLabel *my_nickname_label = GTK_LABEL(gtk_builder_get_object(builder, "my_nickname_label"));
+    {
+        lock_guard<mutex> lock(netdata->mynamemutex);
+        gtk_label_set_label(my_nickname_label, netdata->myNickName.c_str());
+    }
+
+    user_added_cb(guidata);
+    user_deleted_cb(guidata);
+
+    if (guidata->RowtoNick.size()>0) {
+        auto iter = guidata->RowtoNick.begin();
+        gtk_widget_activate(GTK_WIDGET(iter->first));
+    }
+
+    write_main_window_log(guidata);
+
+    gtk_widget_hide(GTK_WIDGET(login_window));
+    
     return false;
 }
 
 gboolean back_to_login_cb(ClientGuiData *guidata)
 {
 
+    LOCAL_UNPACK_GUIDATAP()
+    //set the elements on login window properly.
+    GtkEntry * nickname_input = GTK_ENTRY(gtk_builder_get_object(builder, "nickname_input"));    
+    gtk_entry_set_text(nickname_input, "");
+    
+    GtkLabel *login_error_label;
+    login_error_label = GTK_LABEL(gtk_builder_get_object(builder, "login_error_label"));
+    string loglabel = "";
+    {
+        lock_guard<mutex> lock(netdata->logsmutex);
+        int n = netdata->logs.size();
+        if (n>0) {
+            loglabel+=netdata->logs.back();
+        }
+    }
+
+    GtkButton * login_button = GTK_BUTTON(gtk_builder_get_object(builder, "login_button"));
+    gtk_button_set_label(login_button, "Login");
+    gtk_widget_set_sensitive(GTK_WIDGET(login_button), true);
+
+    GObject *login_window = gtk_builder_get_object(builder, "login_window");
+    gtk_widget_show_all(GTK_WIDGET(login_window));
+
     return false;
 }
 
 gboolean user_added_cb(ClientGuiData *guidata)
 {
+    LOCAL_UNPACK_GUIDATAP()
+
+    vector<string> usersnap;
+    usersnap.clear();
+    {
+        lock_guard<mutex> lock(netdata->msgmutex);
+        for (auto iter:netdata->userMessages) {
+            usersnap.push_back(iter.first);
+        }    
+    }
+
+    GtkListBox * user_list = GTK_LIST_BOX(gtk_builder_get_object(builder, "user_list"));
+    for (auto realuser: usersnap) {
+        if (guidata->NicktoRow.count(realuser)==0) {
+            GtkListBoxRow * newrow = GTK_LIST_BOX_ROW(gtk_list_box_row_new());
+            GtkLabel * newlabel = GTK_LABEL(gtk_label_new(realuser.c_str()));
+            gtk_container_add(GTK_CONTAINER(newrow), GTK_WIDGET(newlabel));
+            g_object_set(G_OBJECT(newrow), "width_request", 100, "visible", true, "can_focus", true);
+            g_object_set(G_OBJECT(newlabel), "height_request", 35, "visible", true, "can_focus", false,
+             "margin_top",2,"margin_bottom",2);
+            gtk_label_set_justify(newlabel, GTK_JUSTIFY_CENTER);
+            gtk_label_set_line_wrap(newlabel, true);
+            gtk_label_set_line_wrap_mode(newlabel, PANGO_WRAP_CHAR);
+            gtk_label_set_max_width_chars(newlabel, 14);
+
+            guidata->NicktoRow[realuser] = newrow;
+            guidata->RowtoNick[newrow] = realuser;
+
+            gtk_container_add(GTK_CONTAINER(user_list), GTK_WIDGET(newrow));
+        }
+    }
+    gtk_widget_show_all(GTK_WIDGET(user_list));
+
+    write_main_window_log(guidata);
 
     return false;
 }
 
 gboolean user_deleted_cb(ClientGuiData *guidata)
 {
+    LOCAL_UNPACK_GUIDATAP()
 
+    vector<string> usersnap;
+    usersnap.clear();
+    {
+        lock_guard<mutex> lock(netdata->msgmutex);
+        for (auto iter:netdata->userMessages) {
+            usersnap.push_back(iter.first);
+        }    
+    }
+
+    GtkListBox * user_list = GTK_LIST_BOX(gtk_builder_get_object(builder, "user_list"));
+    for (auto realuser: usersnap) {
+        if (guidata->NicktoRow.count(realuser)>0) {
+            GtkListBoxRow * thisrow = guidata->NicktoRow[realuser];
+            gtk_container_remove(GTK_CONTAINER(user_list), GTK_WIDGET(thisrow));
+            gtk_widget_destroy(GTK_WIDGET(thisrow));
+        }
+    }
+        
+    gtk_widget_show_all(GTK_WIDGET(user_list));
+
+    write_main_window_log(guidata);
     return false;
 }
 
 void login_clicked_cb( GtkWidget *widget, ClientGuiData * guidata)
 {
+    LOCAL_UNPACK_GUIDATAP()
+
+    
 
 }
 
@@ -174,11 +317,9 @@ void msg_send_cb(GtkWidget *widget, ClientGuiData * guidata)
 
 }
 
-//if the user logged out before this row is chosen, do nothing (or maybe call user_deleted_cb).
-//if normal, change the currentChosenUser and call refresh_msg_window. 
 void switch_user_cb(GtkListBox *box, GtkListBoxRow *row, ClientGuiData *guidata)
 {
-
+    refresh_msg_window(guidata);
 }
 
 void logout_cb(GtkWidget *widget, ClientGuiData * guidata)
