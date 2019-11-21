@@ -26,6 +26,7 @@ add_executable(
     chatClient
     
     clientGui.cpp
+    $<TARGET_OBJECTS:clientNet>
 )
 
 

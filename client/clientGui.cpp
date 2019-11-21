@@ -41,6 +41,7 @@ gboolean user_deleted_cb(ClientGuiData *guidata);
 //whatever the sender is, call refresh_msg_window.
 gboolean msg_recv_cb(ClientGuiData *guidata){
     refresh_msg_window(guidata);
+    write_main_window_log(guidata);
     return false;
 }
 gboolean msg_recv_error_cb(ClientGuiData *guidata) {
@@ -89,10 +90,10 @@ int gui_entry(int argc, char *argv[]) {
 #undef LOCAL_ADDNETCB
     //set up gui callback.
     GObject *login_window = gtk_builder_get_object(builder, "login_window");
-    g_signal_connect(login_window, "destroy", G_CALLBACK(gtk_main_quit), NULL);
+    g_signal_connect(login_window, "delete-event", G_CALLBACK(gtk_main_quit), NULL);
 
     GObject *main_window = gtk_builder_get_object(builder, "main_window");
-    g_signal_connect(main_window, "destroy", G_CALLBACK(gtk_main_quit), NULL);
+    g_signal_connect(main_window, "delete-event", G_CALLBACK(gtk_main_quit), NULL);
 
     GObject *login_button = gtk_builder_get_object(builder, "login_button");
     g_signal_connect(login_button, "clicked", G_CALLBACK(login_clicked_cb), &guiData);
@@ -225,6 +226,7 @@ gboolean back_to_login_cb(ClientGuiData *guidata)
             loglabel+=netdata->logs.back();
         }
     }
+    gtk_label_set_text(login_error_label, loglabel.c_str());
 
     GtkButton * login_button = GTK_BUTTON(gtk_builder_get_object(builder, "login_button"));
     gtk_button_set_label(login_button, "Login");
@@ -255,9 +257,8 @@ gboolean user_added_cb(ClientGuiData *guidata)
             GtkListBoxRow * newrow = GTK_LIST_BOX_ROW(gtk_list_box_row_new());
             GtkLabel * newlabel = GTK_LABEL(gtk_label_new(realuser.c_str()));
             gtk_container_add(GTK_CONTAINER(newrow), GTK_WIDGET(newlabel));
-            g_object_set(G_OBJECT(newrow), "width_request", 100, "visible", true, "can_focus", true);
-            g_object_set(G_OBJECT(newlabel), "height_request", 35, "visible", true, "can_focus", false,
-             "margin_top",2,"margin_bottom",2);
+            g_object_set(G_OBJECT(newrow), "width_request", 100, "visible", true, "can_focus", true, NULL);
+            g_object_set(G_OBJECT(newlabel), "height_request", 35, "visible", true, "can_focus", false, "margin_top",2, "margin_bottom",2, NULL);
             gtk_label_set_justify(newlabel, GTK_JUSTIFY_CENTER);
             gtk_label_set_line_wrap(newlabel, true);
             gtk_label_set_line_wrap_mode(newlabel, PANGO_WRAP_CHAR);
@@ -295,7 +296,6 @@ gboolean user_deleted_cb(ClientGuiData *guidata)
                 guidata->RowtoNick.erase(thisrow);
                 guidata->NicktoRow.erase(myuser);
                 gtk_container_remove(GTK_CONTAINER(user_list), GTK_WIDGET(thisrow));
-                gtk_widget_destroy(GTK_WIDGET(thisrow));
             }
         }
     }
@@ -347,6 +347,7 @@ void msg_send_cb(GtkWidget *widget, ClientGuiData * guidata)
         gtk_entry_set_text(message_entry, "");
 
         netcore->SendMessageTo(guidata->RowtoNick[currentRow], line);
+        refresh_msg_window(guidata);
     } else {
         netcore->writeLog("send: no user selected.");
         write_main_window_log(guidata);

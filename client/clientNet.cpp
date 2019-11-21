@@ -55,6 +55,7 @@ int ClientNet::Login(const std::string & myNickName, int waitTime)
     } while (0);
     
     Clear();
+    writeLog("Connection Error when login.");
     if (loginErrorCB) loginErrorCB();    
     return 0;
 }
@@ -275,7 +276,8 @@ void ClientNet::oneUserDeleted(const std::string & name)
 
 void ClientNet::messageReceived(const std::string & name, const std::string & message)
 {
-    writeUserMessage(name, message);
+    writeUserMessage(name, name+":"+message);
+    writeLog("New message: " + name);
     if (messageReceivedCB) messageReceivedCB();
 }
 
