@@ -1,7 +1,15 @@
 #include "../common.h"
+#include <gdk/gdk.h>
+#include <gtk/gtk.h>
+#include <libgen.h>
+
 #include "clientGui.h"
 #include "clientChatData.h"
 #include "clientNet.h"
+
+#ifndef UIXML_NAME
+#define UIXML_NAME "./client.glade"
+#endif 
 
 using namespace std;
 
@@ -63,7 +71,12 @@ int gui_entry(int argc, char *argv[]) {
     GError* err = NULL;
     gtk_init (&argc, &argv);
     builder = gtk_builder_new();
-    if (gtk_builder_add_from_file(builder, "client.glade", &err) == 0) {
+
+    char buf[4096];
+    strncpy(buf,argv[0],4095);
+    string exedir = dirname(buf);
+
+    if (gtk_builder_add_from_file(builder, (exedir+"/client.glade").c_str(), &err) == 0) {
         NPNX_LOG("builder", err->message);
         g_clear_error(&err);
         exit(-1);
