@@ -16,13 +16,14 @@ public:
         }
     }
 
-    int numUserIndex = 0;
-    int currentChosenUser = 0;
-    std::map<int, string> idToNick;
-    std::map<string, GtkWidget*> NicktoRow;
+    bool loggedin = false;
+
     ClientNet * netcore=NULL;
     ClientChatData * netdata=NULL;
     GtkBuilder * builder = NULL;
+
+    GtkListBoxRow* currentChosenRow = NULL;
+    std::map<GtkWidget*, string> RowtoNick;
 
 };
 
@@ -40,17 +41,23 @@ gboolean user_added_cb(ClientGuiData *guidata);
 gboolean user_deleted_cb(ClientGuiData *guidata);
 
 //whatever the sender is, call refresh_msg_window.
-gboolean msg_recv_cb(ClientGuiData *guidata);
+gboolean msg_recv_cb(ClientGuiData *guidata){
+    refresh_msg_window(guidata);
+    return false;
+}
+gboolean msg_recv_error_cb(ClientGuiData *guidata) {
+    write_main_window_log(guidata);
+    return false;
+}
 
 //these are connect to signals of GUI widgets.
 void login_clicked_cb( GtkWidget *widget, ClientGuiData * guidata);
 void msg_send_cb(GtkWidget *widget, ClientGuiData * guidata);
 
 //if the user logged out before the tabid is chosen, do nothing (or maybe call user_deleted_cb).
-//if normal, change the currentChosenUser and call refresh_msg_window. 
-void switch_user_cb(GtkWidget *widget, int *tabid);
+//if normal, change the currentChosenRow and call refresh_msg_window. 
+void switch_user_cb(GtkListBox *box, GtkListBoxRow *row, ClientGuiData *guidata);
 void logout_cb(GtkWidget *widget, ClientGuiData * guidata);
-
 
 int gui_entry(int argc, char *argv[]) {
     GtkBuilder* builder;
@@ -67,8 +74,20 @@ int gui_entry(int argc, char *argv[]) {
     guiData.netcore = new ClientNet();
     guiData.netdata = guiData.netcore->getChatDataPointer();
     guiData.builder = builder;
+    ClientGuiData *guiDataP = &guiData;
 
+#define LOCAL_ADDNETCB(A, B) \
+    guiData.netcore-> A = [guiDataP](){gdk_threads_add_idle ((GSourceFunc)B, guiDataP);}
 
+    LOCAL_ADDNETCB(connectionErrorCB, back_to_login_cb);
+    LOCAL_ADDNETCB(loginOKCB, login_ok_cb);
+    LOCAL_ADDNETCB(loginErrorCB, back_to_login_cb);
+    LOCAL_ADDNETCB(oneUserAddedCB, user_added_cb);
+    LOCAL_ADDNETCB(oneUserDeletedCB, user_deleted_cb);
+    LOCAL_ADDNETCB(messageReceivedCB, msg_recv_cb);
+    LOCAL_ADDNETCB(messageErrorCB, msg_recv_error_cb);
+
+#undef LOCAL_ADDNETCB
     //set up gui callback.
     GObject *login_window = gtk_builder_get_object(builder, "login_window");
     g_signal_connect(login_window, "destroy", G_CALLBACK(gtk_main_quit), NULL);
@@ -77,25 +96,94 @@ int gui_entry(int argc, char *argv[]) {
     g_signal_connect(main_window, "destroy", G_CALLBACK(gtk_main_quit), NULL);
 
     GObject *login_button = gtk_builder_get_object(builder, "login_button");
-    g_signal_connect(login_button, "clicked", G_CALLBACK(login_clicked_cb), guiData);
+    g_signal_connect(login_button, "clicked", G_CALLBACK(login_clicked_cb), &guiData);
 
     GObject *logout_button = gtk_builder_get_object(builder, "logout_button");
-    g_signal_connect(logout_button, "clicked", G_CALLBACK(logout_cb), guiData);
+    g_signal_connect(logout_button, "clicked", G_CALLBACK(logout_cb), &guiData);
 
     GObject *send_button = gtk_builder_get_object(builder, "send_button");
-    g_signal_connect(send_button, "clicked", G_CALLBACK(msg_send_cb), guiData);
+    g_signal_connect(send_button, "clicked", G_CALLBACK(msg_send_cb), &guiData);
+
+    GObject *user_list = gtk_builder_get_object(builder, "user_list");
+    g_signal_connect(user_list, "row-activated", G_CALLBACK(switch_user_cb), &guiData);
 
     gtk_widget_show_all(GTK_WIDGET(login_window));
     gtk_widget_show_all(GTK_WIDGET(main_window));
     gtk_main();
     g_object_unref(G_OBJECT(builder));
-    gtk_widget_destory(login_window);
-    gtk_widget_destory(main_window);
+    gtk_widget_destroy(GTK_WIDGET(login_window));
+    gtk_widget_destroy(GTK_WIDGET(main_window));
     return 0;
 }
-
-
 
 int main(int argc, char *argv[]) {
     return gui_entry(argc, argv);
 }
+
+#define LOCAL_UNPACK_GUIDATAP() \
+    ClientNet * netcore = guidata->netcore; \
+    ClientChatData * netdata = guidata->netdata; \
+    GtkBuilder * builder = guidata->builder;
+
+//functions run in mainloop to do common operations
+void write_main_window_log(ClientGuiData *guidata)
+{
+    LOCAL_UNPACK_GUIDATAP()
+    
+
+}
+
+void refresh_msg_window(ClientGuiData *guidata)
+{
+
+}
+
+//these are CB used in CB of netcore, which uses gdk_threads_add_idle () add them to run in main loop. 
+//these functions must return FALSE to run only once.
+gboolean login_ok_cb(ClientGuiData *guidata)
+{
+
+    return false;
+}
+
+gboolean back_to_login_cb(ClientGuiData *guidata)
+{
+
+    return false;
+}
+
+gboolean user_added_cb(ClientGuiData *guidata)
+{
+
+    return false;
+}
+
+gboolean user_deleted_cb(ClientGuiData *guidata)
+{
+
+    return false;
+}
+
+void login_clicked_cb( GtkWidget *widget, ClientGuiData * guidata)
+{
+
+}
+
+void msg_send_cb(GtkWidget *widget, ClientGuiData * guidata)
+{
+
+}
+
+//if the user logged out before this row is chosen, do nothing (or maybe call user_deleted_cb).
+//if normal, change the currentChosenUser and call refresh_msg_window. 
+void switch_user_cb(GtkListBox *box, GtkListBoxRow *row, ClientGuiData *guidata)
+{
+
+}
+
+void logout_cb(GtkWidget *widget, ClientGuiData * guidata)
+{
+
+}
+
+#undef LOCAL_UNPACK_GUIDATAP
