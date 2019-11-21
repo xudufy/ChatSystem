@@ -94,7 +94,6 @@ int gui_entry(int argc, char *argv[]) {
     return 0;
 }
 
-//TODO: add send_button to glade.
 
 
 int main(int argc, char *argv[]) {
