@@ -7,10 +7,6 @@
 #include "clientChatData.h"
 #include "clientNet.h"
 
-#ifndef UIXML_NAME
-#define UIXML_NAME "./client.glade"
-#endif 
-
 using namespace std;
 
 class ClientGuiData {
