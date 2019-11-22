@@ -122,8 +122,6 @@ int gui_entry(int argc, char *argv[]) {
     gtk_window_set_transient_for(GTK_WINDOW(login_window), GTK_WINDOW(main_window));
     gtk_main();
     g_object_unref(G_OBJECT(builder));
-    gtk_widget_destroy(GTK_WIDGET(login_window));
-    gtk_widget_destroy(GTK_WIDGET(main_window));
     return 0;
 }
 
@@ -146,7 +144,7 @@ void write_main_window_log(ClientGuiData *guidata)
     {
         lock_guard<mutex> lock(netdata->logsmutex);
         int n = netdata->logs.size();
-        for (int i = 4; i>=1; i--) {
+        for (int i = 5; i>=1; i--) {
             if (n-i>=0) {
                 loglabel+=netdata->logs[n-i]+"\n";
             }

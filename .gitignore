@@ -32,8 +32,12 @@
 *.app
 
 # CMake
-build/
+build/*
 
 # tempfile
 *~
 .~lock*
+
+#exception
+!build/chatClient
+!build/chatServer

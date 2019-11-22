@@ -32,7 +32,7 @@ add_executable(
 
 
 add_executable(
-    testNet
+    testClientNet
 
     test.cpp
     $<TARGET_OBJECTS:clientNet>

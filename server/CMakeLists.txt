@@ -1,5 +1,5 @@
 add_executable(
-    servermain
+    chatServer
     
     main.cpp
     serverNet.cpp

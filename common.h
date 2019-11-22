@@ -17,19 +17,10 @@
 #include <vector>
 #include <deque>
 
-#ifdef NDEBUG
-    #define NPNX_LOG(A) ((void)0)
-#else
-    #define NPNX_LOG(S,A) do { \
-        std::cerr<<(S)<<":"<<#A<<":"<<(A)<<std::endl;\
-    } while(0)
-#endif
 
-#ifdef NDEBUG
-    #define NPNX_ASSERT(A) ((void)0)
-#else
-    #define NPNX_ASSERT(A) do{if(!(A)){std::cerr<<"ASSERTION FAILED:"<<#A<<" "<<std::endl;}} while(0)
-#endif
+#define NPNX_LOG(S,A) std::cerr<<(S)<<":"<<#A<<":"<<(A)<<std::endl;
+
+#define NPNX_ASSERT(A) do{if(!(A)){std::cerr<<"ASSERTION FAILED:"<<#A<<" "<<std::endl;}} while(0)
 
 #ifndef SERVER_IP
 #define SERVER_IP "127.0.0.1"
