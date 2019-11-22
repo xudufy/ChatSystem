@@ -41,3 +41,4 @@ build/*
 #exception
 !build/chatClient
 !build/chatServer
+!build/client.glade
