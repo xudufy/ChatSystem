@@ -18,7 +18,7 @@ private:
   void oneLogOut(int fd);
   void oneLogIn(int fd, const std::string & nickname);
   void oneSendMessage(int in_fd, const std::string & to_name, const std::string & msg);
-  void boardcast(const std::string & cmd, int exceptfd = -1);
+  void broadcast(const std::string & cmd, int exceptfd = -1);
 
   int epfd=-1, listenfd=-1, stdinfd=STDIN_FILENO;
   std::unordered_map<int, std::string> openedfd; 

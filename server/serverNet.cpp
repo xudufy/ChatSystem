@@ -312,7 +312,7 @@ void ServerNet::oneLogOut(int fd)
 
 
     string cmd = compositeMsg({CMDHEAD_USER_DELETE, name});
-    boardcast(cmd, fd);
+    broadcast(cmd, fd);
   }
 }
 
@@ -351,7 +351,7 @@ void ServerNet::oneLogIn(int fd, const std::string & nickname)
   cerr<<nickname<<" logged in."<<endl;
 
   cmd = compositeMsg({CMDHEAD_USER_ADD, nickname});
-  boardcast(cmd, fd);
+  broadcast(cmd, fd);
 
 }
 
@@ -381,7 +381,7 @@ void ServerNet::oneSendMessage(int in_fd, const std::string & to_name, const std
   
 }
 
-void ServerNet::boardcast(const std::string & cmd, int exceptfd){
+void ServerNet::broadcast(const std::string & cmd, int exceptfd){
 
     std::vector<int> failedfds;
     failedfds.clear();
