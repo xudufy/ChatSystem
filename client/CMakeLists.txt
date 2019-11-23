@@ -25,6 +25,7 @@ add_library(
 add_executable(
     chatClient
     
+    main.cpp
     clientGui.cpp
     $<TARGET_OBJECTS:clientNet>
 )
@@ -35,6 +36,14 @@ add_executable(
     testClientNet
 
     test.cpp
+    $<TARGET_OBJECTS:clientNet>
+)
+
+add_executable(
+    testGui
+
+    testGui.cpp
+    clientGui.cpp
     $<TARGET_OBJECTS:clientNet>
 )
 

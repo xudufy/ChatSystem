@@ -125,10 +125,6 @@ int gui_entry(int argc, char *argv[]) {
     return 0;
 }
 
-int main(int argc, char *argv[]) {
-    return gui_entry(argc, argv);
-}
-
 #define LOCAL_UNPACK_GUIDATAP() \
     ClientNet * netcore = guidata->netcore; \
     ClientChatData * netdata = guidata->netdata; \
