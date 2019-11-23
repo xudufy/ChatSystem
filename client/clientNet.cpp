@@ -119,7 +119,7 @@ int ClientNet::Clear()
         string cmdline = compositeMsg({CMDHEAD_LOGOUT});
         shutdown(socketFd, SHUT_WR);
         char buf[4096];
-        while (recv(socketFd, buf, 4096, 0)>0) {}
+        while (recv(socketFd, buf, 4096, MSG_DONTWAIT)>0) {} //avoid dead block here if server is hang up(not terminated.)
         close(socketFd);
         socketFd = -1;
     }
@@ -185,12 +185,7 @@ void ClientNet::listener_main_loop()
                     loginNickNameError();
                     breakflag = true;
                     break;
-                } else if (!pendingTimer.TimerNotEnd()) {
-                    writeLog("Login Timeout.");
-                    if (loginErrorCB) loginErrorCB();
-                    breakflag = true;
-                    break;
-                }
+                } 
             } else if (status == NetStatus::LOGGED_IN){
                 if (cols[0] == CMDHEAD_USER_ADD){
                     NPNX_ASSERT(cols.size()==2 && "USER_ADD size not right");
@@ -208,6 +203,13 @@ void ClientNet::listener_main_loop()
             }
         }
         if (breakflag) break;
+        
+        //move out from for because if the cmds is empty, the timeout will never be run.
+        if (status == NetStatus::LOGIN_PENDING && !pendingTimer.TimerNotEnd()) {
+            writeLog("Login Timeout.");
+            if (loginErrorCB) loginErrorCB();
+            break;
+        }
 
         std::this_thread::sleep_for(std::chrono::duration<int, std::ratio<1,1000>>(100));
     }

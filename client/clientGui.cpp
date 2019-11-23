@@ -326,8 +326,10 @@ void login_clicked_cb( GtkWidget *widget, ClientGuiData * guidata)
         back_to_login_cb(guidata);
     } else {
         netcore->Login(nick);
+        GObject *login_window = gtk_builder_get_object(builder, "login_window");
+        gtk_widget_show_all(GTK_WIDGET(login_window));
+        
     }
-    
 }
 
 void msg_send_cb(GtkWidget *widget, ClientGuiData * guidata)

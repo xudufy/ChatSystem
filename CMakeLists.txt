@@ -14,8 +14,8 @@ link_libraries(${CMAKE_THREAD_LIBS_INIT})
 add_definitions(-DSERVER_IP="127.0.0.1" -DSERVER_PORT=65502)
 
 
-add_compile_options(-O2 -DNDEBUG)
-
+# add_compile_options(-O2 -DNDEBUG)
+add_compile_options(-g -O0)
 
 add_subdirectory(client)
 add_subdirectory(server)

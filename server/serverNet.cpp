@@ -108,19 +108,24 @@ int ServerNet::ListenerLoop()
           break;
         }
 
-        char buf[4096];
-        int len;
-        if ((len=read(stdinfd, buf, 4095))<0) {
-          NPNX_LOG_ERRNO("stdin recv");
-          errorHappened = true;
-          break;
-        }
-        buf[len] = '\0';
-        string cmd(buf);
-        if (cmd.substr(0,4)=="exit") {
-          cerr<<"exit called."<<endl;
-          errorHappened = true;
-          break;
+        //This is a workaround to avoid possible SIGTTIN signal when runs in background. 
+        //Problem may happen if the program switch from foreground to background between this and next read.
+        //The right thing to do is correctly handling SIGTTIN.
+        if (getpgrp() == tcgetpgrp(STDIN_FILENO)) { 
+          char buf[4096];
+          int len;
+          if ((len=read(stdinfd, buf, 4095))<0) { 
+            NPNX_LOG_ERRNO("stdin recv");
+            errorHappened = true;
+            break;
+          }
+          buf[len] = '\0';
+          string cmd(buf);
+          if (cmd.substr(0,4)=="exit") {
+            cerr<<"exit called."<<endl;
+            errorHappened = true;
+            break;
+          }
         }
 
       } else { //fd is a client fd.
